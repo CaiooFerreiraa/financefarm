@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 18.1.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:3001"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://financefarm-api.onrender.com",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Z29vZC1za3lsYXJrLTMzLmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_NATIVEWIND_UPGRADE": "1"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://financefarm-api.onrender.com",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Z29vZC1za3lsYXJrLTMzLmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_NATIVEWIND_UPGRADE": "1"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

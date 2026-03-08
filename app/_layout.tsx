@@ -1,57 +1,86 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import '../global.css';
+import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { tokenCache } from '../lib/clerk';
+import { useFonts, Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import { LogBox, View as RNView, Text as RNText } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+// Suprime avisos que não podemos corrigir em dependências (Clerk, NativeWind v4)
+LogBox.ignoreLogs([
+  'SafeAreaView has been deprecated',
+  "Couldn't find a navigation context",
+  'Duplicate atom key', // Comum com NativeWind v4 e Hot Reloading
+]);
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+const queryClient = new QueryClient();
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+function AuthGuard() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (!isLoaded) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    console.log('Auth status:', { isSignedIn, isLoaded, inAuthGroup, segment: segments[0] });
+
+    if (isSignedIn && inAuthGroup) {
+      // Logged in but in auth pages -> Go to tabs
+      console.log('Redirecting to (tabs)');
+      router.replace('/(tabs)');
+    } else if (!isSignedIn && !inAuthGroup) {
+      // Not logged in but not in auth pages -> Go to login
+      console.log('Redirecting to (auth)/sign-in');
+      router.replace('/(auth)/sign-in');
     }
-  }, [loaded]);
+  }, [isSignedIn, isLoaded, segments]);
 
-  if (!loaded) {
-    return null;
-  }
+  if (!isLoaded) return <RNView style={{ flex: 1, backgroundColor: '#2D5A27' }} />;
 
-  return <RootLayoutNav />;
+  return <Slot />;
 }
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  const [loaded, error] = useFonts({ Inter_400Regular, Inter_700Bold });
+
+  useEffect(() => {
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
+
+  if (!loaded && !error) return null;
+
+  const content = (
+    <QueryClientProvider client={queryClient}>
+      <AuthGuard />
+    </QueryClientProvider>
+  );
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      {!publishableKey ? (
+        <RNView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <RNView style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#FCA5A5' }}>
+            <RNText style={{ color: '#991B1B', fontWeight: 'bold', fontSize: 13 }}>⚠️ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY não configurada.</RNText>
+          </RNView>
+          {content}
+        </RNView>
+      ) : (
+        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+          <ClerkLoaded>
+            {content}
+          </ClerkLoaded>
+        </ClerkProvider>
+      )}
+    </SafeAreaProvider>
   );
 }
